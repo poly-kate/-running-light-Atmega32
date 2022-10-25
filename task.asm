@@ -1,43 +1,53 @@
 .CSEG
 .ORG 0x0000
 rjmp start
+
 ; Прерывания кнопок.
-.org INT0addr//смена режима
+.org INT0addr ;смена режима
 rjmp EXT_INT0
 .org INT1addr
 rjmp EXT_INT1
+
 ;прерывание таймера
 .org OVF0addr ;для вывода на 7индикатор
 rjmp TIM0_OVF
+
 .org OVF1addr
 rjmp TIM1_OVF
+
 .org $020; АЦП
 rjmp ADC_C
-.def step = r16//1
-.def ba = r22//базовые значения
+
+.def step = r16 ;1
+.def ba = r22 ;базовые значения
 .def bb = r23
 .def bc = r24
-.def mode = r25//2 режима - работа/настройка
-.def param = r27//3 параметра - b0, b1, b2
-.def NumovfTim0 = r30//registr?
+.def mode = r25 ;2 режима - работа/настройка
+.def param = r27 ;3 параметра - b0, b1, b2
+.def NumovfTim0 = r30
 .def temp = r31
+
 .macro seg
 cpi R21, @0
 brne @1
 ldi R21, @2
 jmp detf_exit
 .endm
+
 .macro outp
 ldi temp, @1
 out @0, temp
 .endm
+
 start:
+
 ldi mode, LOW(RAMEND)
 out SPL, mode
 ldi mode, HIGH(RAMEND)
 out SPH, mode
+
 ; Инициализация
-ldi mode,0b01111110 //pd7
+ldi mode,0b01111110 ;pd7
 out TCCR2, mode
 ldi mode,0x00
 out TCNT2, mode
@@ -51,6 +61,7 @@ outp OCR1AL, 0x00
 ;---------------------------------
 ldi NumovfTim0, 0 ; счетчик
 ;-----------------------------
+
 ldi ba, 0b00000001; По переполнению
 out TCCR0, ba
 ldi mode, 252
@@ -66,15 +77,18 @@ mov r10, mode
 ldi mode, 0
 mov r11, mode
 mov r12, mode
+
 ldi mode, 0b00001111
 out MCUCR, mode
 ldi mode, 0b11000000
 out GICR, mode
+
 LDI R16, 0b00100101
-//LDI R16, 0b01100101
+;LDI R16, 0b01100101
 out ADMUX, R16 ; АЦП
-ldi mode, 0 //режим работы
-ldi param, 0 //первый параметр
+
+ldi mode, 0 ;режим работы
+ldi param, 0 ;первый параметр
 ser r18
 out DDRB, r18
 out DDRC, r18
@@ -83,8 +97,10 @@ out DDRA, r18
 ldi r18, 0b10010000
 out DDRD, r18
 sei
+
 main:
-cpi mode, 0//выбор режима работы
+
+cpi mode, 0;выбор режима работы
 breq workmode
 rjmp settingmode
 ;====================================
@@ -110,13 +126,15 @@ bst r26, 7
 lsl bc
 bld bc, 0
 rjmp main
+
 ;========================================
 ;НАСТРОЙКА
 ;========================================
 settingmode:
 cpi mode, 0
-breq main //выход, если не режим настройки (сменился)
+breq main ;выход, если не режим настройки (сменился)
 ;вывод на 2 первых индикатора имени параметра и точки (b0.)
+
 cpi NumovfTim0, 64
 brlo outfirst
 cpi NumovfTim0, 128
@@ -125,6 +143,7 @@ cpi NumovfTim0, 192
 brlo outthird
 jmp outforth
 JMP settingmode
+
 outfirst:
 ldi r28, 0b01111100 ;'b'
 ldi r29, 0x8 ;first indicator
@@ -138,12 +157,15 @@ cpi param, 1
 breq one
 cpi param, 2
 breq two
+
 zero:
 ldi r28, 0b10111111 ;'0'
 jmp output
+
 one:
 ldi r28, 0b10000110 ;'1'
 jmp output
+
 two:
 ldi r28, 0b11011011 ;'2'
 jmp output
@@ -155,16 +177,19 @@ cpi param, 1
 breq one1
 cpi param, 2
 breq two1
+
 zero1:
 mov r20, ba
 jmp end1
+
 one1:
 mov r20, bb
 jmp end1
-two1:
 
+two1:
 mov r20, bc
 jmp end1
+
 end1: nop
 ldi R19, 0
 call seg_ind
@@ -179,21 +204,26 @@ cpi param, 1
 breq one2
 cpi param, 2
 breq two2
+
 zero2:
 mov r20, ba
 jmp end2
+
 one2:
 mov r20, bb
 jmp end2
+
 two2:
 mov r20, bc
 jmp end2
+
 end2: nop
 ldi R19, 0
 rcall seg_ind
 mov R28, R20
 ldi R29, 0x1
 jmp output
+
 output:
 out PORTC, R28
 out PORTA, R29
@@ -203,15 +233,17 @@ rjmp main
 ;=======================================
 ;ЧИСЛЕННОЕ ПРЕОБРАЗОВАНИЕ ДЛЯ 7СЕГМ ИНДИКАТОРА
 ;=======================================
-seg_ind: //r19-first r20-second //изначально число хранится в r20, r19=0
+seg_ind: ;r19-first r20-second изначально число хранится в r20, r19=0
+
 mov r19, r20
 lsr r19
 lsr r19
 lsr r19
-lsr r19 //r19 хранит старшие 4 бита
+lsr r19 ;r19 хранит старшие 4 бита
+
 call perform
 mov r10, r19
-andi r20, 0b00001111 //r20 хранит младшие 4 бита
+andi r20, 0b00001111 ;r20 хранит младшие 4 бита
 mov r19, r20
 call perform
 mov r20, r19
@@ -219,10 +251,10 @@ mov r19, r10
 endseg:
 nop
 ret
+
 ;===========================================
 ;СИМВОЛЬНЫЙ ЭКВИВАЛЕНТ
 ;===========================================
-
 perform:
 mov r21, r19
 num0: seg 0x0, num1, 0b00111111
@@ -244,28 +276,31 @@ numF: seg 0xF, detf_exit, 0b01110001
 detf_exit:
 mov r19, r21
 ret
+
 ;=======================================
 ;ПРЕРЫВАНИЯ
 ;========================================
-EXT_INT0://смена режима
+EXT_INT0:;смена режима
 cpi mode, 1
 breq do1
 rjmp else
-do1: //установлен режим настройки
+do1: ;установлен режим настройки
 ldi mode, 0
 LDI R18, 0
 out ADCSRA, R18 ; отключаем многоразовый АЦП
 rjmp exit1
-else: //установлен режим работы-переключаем
+else: ;установлен режим работы-переключаем
 ldi mode, 1
-//LDI R18, 0b11101111
+;LDI R18, 0b11101111
 LDI R18, 0b11111111
 out ADCSRA, R18 ; Включаем многоразовый АЦП
 exit1: nop
 reti
 ;---------------------------------------
-EXT_INT1: //смена парметра bo, b1, b2
-cpi mode, 1//режим настройки
+
+
+EXT_INT1: ;смена парметра bo, b1, b2
+cpi mode, 1;режим настройки
 breq do2
 reti
 do2:
@@ -283,7 +318,7 @@ b0: ldi param, 0
 exit2:
 reti
 ;=========================================
-12
+
 ; Прерывание OVF0 - вывод на семисегментный индикатор
 TIM0_OVF:
 cpi mode, 1; Проверка, что мы находимся в режиме настройки.
